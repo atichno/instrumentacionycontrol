@@ -1,0 +1,22 @@
+Para probar como se incluye en un archivo en el grupal, cuando no tengo permisos de envio, voy a comentar algunas cosas que probablemente
+sean obvias para ustedes, pero que me sirven para ordenar mi cabeza olvidada.
+Primero: La placa de audio, en su parte de salida, es escencialmente un conversor digital-analógico que convierte la señal digital
+(bines digitales) que le programamos en escalones analógicos que se procesaran para hacer la salida, escencialmente se filtran con un pasabajos
+Segundo: La entrada del microfono es un conversor analógico - digital que tiene una rampa para hacer la conversión con el comparador,
+bin a bin. No tengo claro que valor de entrada usa para comparar con la rampa en el OPAM, si el máximo de cada bin o algun otro que debe 
+haber "congelado" en la señal de entrada. 
+Tercero: La forma de 14 bits 44100 es para indicar 24 bits de profundidad con un sampleo de 44100 Hz para asegurarse estar bien con Nyquist
+teniendo en cuenta que la gente con buen oído llega a aprox 20000 Hz. Podríamos hacer un jueguito con un variador de frecuencia
+y un "boton" que pare cuando no escuchamos más y así ver quien de nosotros escucha a mayor frecuencia
+Cuarto:Para tener salida y entrada en el mismo lugar necesitabamos un conector de 3 sectores + punta: 4 cables
+los que había en el lab eran de 2 sectores + punta: 3 cables
+
+Tip_ La calidad de una buena o mala señal de audio está escencialmente en lo bien que se logra filtrar la distorsión que se genera con un pasabajos
+O sea, la calidad del filtro es lo más importante en la salida de audio. Aparentemente hay filtros pequeños que se pueden poner a la salida
+de los celulares para mejorar el sonido a calidad profesional
+Listo para lo básico.
+Para el trabajo agrego que debemos tener en cuenta lo siguiente:
+  1.- Calibrar la salida en volts con la señal digital que enviamos a la placa, de modo de no tener que medir 2 cosas a la vez,
+  lo cual es engorroso y no muy razonable. Esto lo podemos hacer con el multímetro y luego pasar curva a un archivo de lectura
+  2.- Para las mediciones de corriente debemos usar una resistencia y medir voltaje. Ergo debemos calibrar el valor de la resistencia
+  
