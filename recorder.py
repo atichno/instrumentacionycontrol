@@ -15,6 +15,42 @@ Non-blocking mode (start and stop recording):
 ...     recfile2.stop_recording()
 '''
 
+rec = Recorder(channels=2)
+with rec.open('nonblocking.wav', 'wb') as recfile2:
+    recfile2.start_recording() # empieza a grabar en modo callback
+    #time.sleep(10.0)
+    
+    # aca viene la parte tomada de audio.py para generar el audio
+    CHUNK = 1024
+    volume = 1    # range [0.0, 1.0]
+    fs = 44100       # sampling rate, Hz, must be integer
+    duration = 5.0   # in seconds, may be float
+    f = 200      # sine frequency, Hz, may be float
+    samples = volume*(np.cos(2*np.pi*np.arange(fs*duration)*f/fs)).astype(np.float32)
+    #samples = volume*(np.cos(2*np.pi*np.arange(fs*duration))).astype(np.float32)
+    p = pyaudio.PyAudio()
+    
+    stream = p.open(format=pyaudio.paFloat32,
+                    channels=1,
+                    rate=fs,
+                    output=True)
+    
+    fin = CHUNK
+    
+    while fin < len(samples):
+        data = samples[fin-CHUNK:fin].tobytes()
+        stream.write(data)
+        fin += CHUNK
+    
+    stream.stop_stream()
+    stream.close()
+    
+    p.terminate()
+    # aca termina la parte de audio.py
+    
+    recfile2.stop_recording() # termina de grabar
+
+
 import pyaudio
 import wave
 
