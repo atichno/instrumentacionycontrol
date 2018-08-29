@@ -14,7 +14,7 @@ Non-blocking mode (start and stop recording):
 ...     time.sleep(5.0)
 ...     recfile2.stop_recording()
 '''
-
+import struct
 import pyaudio
 import wave
 import numpy as np
@@ -113,6 +113,13 @@ def escalon(n_escalones,long_escalon,desde,hasta):
     return samples
     
 # %%
+
+struct.pack('f', 3.141592654)
+struct.unpack('f', b'\xdb\x0fI@')
+struct.pack('4f', 1.0, 2.0, 3.0, 4.0)
+
+# %%
+
 pa = pyaudio.PyAudio()
 datos = [];
 def callback(in_data, frame_count, time_info, status):
@@ -136,64 +143,40 @@ stream.start_stream()
 time.sleep(1)
 stream.stop_stream()
 pa.terminate()
+
 # %%
-with rec.open('medicion-{}.wav'.format(num_wavs+1), 'wb') as recfile2:
-#    s = recfile2.start_recording()
-    #time.sleep(10.0)
-    CHUNK = 1024
-    
-    #if len(sys.argv) < 2:
-    #    print("Plays a wave file.\n\nUsage: %s filename.wav" % sys.argv[0])
-    #    sys.exit(-1)
-    #wf = wave.open('output.wav', 'rb')
-    volume = 0.51    # range [0.0, 1.0]
-    fs = 44100       # sampling rate, Hz, must be integer
-    duration = 1.0 # in seconds, may be float
-    f = 2000      # sine frequency, Hz, may be float
+CHUNK = 1024
+
+volume = 0.51    # range [0.0, 1.0]
+fs = 44100       # sampling rate, Hz, must be integer
+duration = 1.0 # in seconds, may be float
+f = 2000      # sine frequency, Hz, may be float
  #   samples = volume*(np.cos(2*np.pi*np.arange(fs*duration)*f/fs)).astype(np.float32)
-    
-    # Barriendo en frecuencia
-    frecuencia_inicial = 10 ;
-    frecuencia_final = 20000 ;
-    salto = 1000;
-    frecuencias = np.arange(frecuencia_inicial,frecuencia_final,salto)
-    n_periodos = 5 # cantidad de periodos
 
-    for freq in frecuencias:
-        p = pyaudio.PyAudio()
-    
-        stream = p.open(format=pyaudio.paFloat32,
-                    channels=1,
-                    rate=fs,
-                    output=True)
-#        duration = n_periodos/freq
-        duration = 0.5
-        senial = volume * (np.sin(2*np.pi*np.arange(fs*duration)*freq/fs)).astype(np.float32)
-        
-        fin = CHUNK
-        
-        while fin < len(senial):
-            data = senial[fin-CHUNK:fin].tobytes()
-            stream.write(data)
-            fin += CHUNK
-        stream.stop_stream()
-        stream.close()
-    
-        p.terminate()    
-        #samples = volume*(np.cos(2*np.pi*np.arange(fs*duration))).astype(np.float32)
+# Barriendo en frecuencia
+frecuencia_inicial = 10 ;
+frecuencia_final = 20000 ;
+salto = 1000;
+frecuencias = np.arange(frecuencia_inicial,frecuencia_final,salto)
+n_periodos = 5 # cantidad de periodos
 
+for freq in frecuencias:
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=pyaudio.paFloat32,
+                channels=1,
+                rate=fs,
+                output=True)
+    duration = 0.5
+    senial = volume * (np.sin(2*np.pi*np.arange(fs*duration)*freq/fs)).astype(np.float32)
     
+    fin = CHUNK
     
-    recfile2.stop_recording()
-    
-# %% Graficar
-with wave.open('nonblocking.wav','r') as spf:
-    #Extract Raw Audio from Wav File
-    signal = spf.readframes(-1)
-    signal = np.frombuffer(signal, 'Int16')
-    fs = spf.getframerate()
-    tiempo = np.linspace(0, len(signal)/fs, num=len(signal))
-    plt.figure(1)
-    plt.title('Signal Wave...')
-    plt.plot(tiempo, signal)
-    plt.show()
+    while fin < len(senial):
+        data = senial[fin-CHUNK:fin].tobytes()
+        stream.write(data)
+        fin += CHUNK
+    stream.stop_stream()
+    stream.close()
+
+    p.terminate()
