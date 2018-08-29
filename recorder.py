@@ -113,14 +113,32 @@ def escalon(n_escalones,long_escalon,desde,hasta):
     return samples
     
 # %%
+pa = pyaudio.PyAudio()
+datos = [];
+def callback(in_data, frame_count, time_info, status):
+    datos.append(in_data)
+    return in_data, pyaudio.paContinue
+    
 os.chdir("C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\Prueba recorder\\")
 ## Tomamos dia y hora actual para dar nombre al archivo wav
 #mes_dia = strftime("%m%d-%H_%M_%S")
 # Agregamos un contador para facilitar referir a los archivos
 num_wavs = len(glob.glob(os.path.join(os.getcwd(), '*.wav')))
 rec = Recorder(channels=2)
+# Use a stream with a callback in non-blocking mode
+stream = pa.open(format=pyaudio.paInt16,
+                 channels=1,
+                 rate=44100,
+                 input=True,
+                 frames_per_buffer=1024,
+                 stream_callback=callback)
+stream.start_stream()
+time.sleep(1)
+stream.stop_stream()
+pa.terminate()
+# %%
 with rec.open('medicion-{}.wav'.format(num_wavs+1), 'wb') as recfile2:
-    recfile2.start_recording()
+#    s = recfile2.start_recording()
     #time.sleep(10.0)
     CHUNK = 1024
     
