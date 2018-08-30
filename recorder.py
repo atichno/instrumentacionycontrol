@@ -12,6 +12,11 @@ import time
 def escalon(n_escalones, long_escalon, desde, hasta):
     """
     Genera una señal escalonada entre dos valores
+    n_escalones(int) = numero de valores discretos que toma la señal
+    long_escalon(int) = numero de samples por escalon
+    desde(float) = valor inicial de la señal
+    hasta(float) = valor final de la señal
+    Devuelve array
     """
     samples = np.linspace(0, 1, n_escalones * long_escalon)
     samples *= n_escalones  # solo sirve si linspace va de 0 a 1
@@ -25,6 +30,13 @@ def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1.,
              dtype=np.float32):
     """
     Genera una señal senoidal de frecuencia y duracion definida
+
+    f_sampleo(float) = frecuencia de sampleo de la señal
+    frecuencia(float) = frecuencia de la señal
+    duracion(float) = duracion de la señal
+    vpp(float) = valor pico a pico
+    dtype = data type de la señal
+    Devuelve array
     """
     times = np.arange(f_sampleo*duracion)
     return 2*vpp*(np.sin(2*np.pi*times*frecuencia/f_sampleo)).astype(dtype)
@@ -32,6 +44,17 @@ def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1.,
 
 def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
              maximo=1.):
+    """
+    Genera una señal cuadrada de frecuencia y duracion definida, con valores 
+    maximos y minimos definidos
+
+    f_sampleo(float) = frecuencia de sampleo de la señal
+    frecuencia(float) = frecuencia de la señal
+    duracion(float) = duracion de la señal
+    minimo = valor minimo de la señal
+    maximo = valor maximos de la señal
+    Devuelve array
+    """
     señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
                      duracion=duracion)
     return (np.sign(señal)+minimo+1)/(2*(maximo-minimo))
