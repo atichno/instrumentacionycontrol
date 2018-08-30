@@ -32,7 +32,12 @@ def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0., maximo=1.):
     señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
                      duracion=duracion)
     return (np.sign(señal)+minimo+1)/(2*(maximo-minimo))
+
 # %%
+code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
+files_path = '/home/juan/Documentos/Instrumentacion'
+
+os.path.isfile(files_path)
 
 struct.pack('f', 3.141592654)
 struct.unpack('f', b'\xdb\x0fI@')
@@ -46,7 +51,6 @@ def callback(in_data, frame_count, time_info, status):
     datos.append(in_data)
     return in_data, pyaudio.paContinue
     
-os.chdir("C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\Prueba recorder\\")
 ## Tomamos dia y hora actual para dar nombre al archivo wav
 #mes_dia = strftime("%m%d-%H_%M_%S")
 # Agregamos un contador para facilitar referir a los archivos
