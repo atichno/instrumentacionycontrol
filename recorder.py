@@ -26,7 +26,7 @@ def escalon(n_escalones, long_escalon, desde, hasta):
     return samples
 
 
-def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1.,
+def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.,
              dtype=np.float32):
     """
     Genera una señal senoidal de frecuencia y duracion definida
@@ -35,11 +35,12 @@ def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1.,
     frecuencia(float) = frecuencia de la señal
     duracion(float) = duracion de la señal
     vpp(float) = valor pico a pico
+    offset(float) = valor dc de la señal
     dtype = data type de la señal
     Devuelve array
     """
     times = np.arange(f_sampleo*duracion)
-    return 2*vpp*(np.sin(2*np.pi*times*frecuencia/f_sampleo)).astype(dtype)
+    return vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset
 
 
 def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
