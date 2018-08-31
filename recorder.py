@@ -46,7 +46,7 @@ def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.,
 def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
              maximo=1.):
     """
-    Genera una señal cuadrada de frecuencia y duracion definida, con valores 
+    Genera una señal cuadrada de frecuencia y duracion definida, con valores
     maximos y minimos definidos
 
     f_sampleo(float) = frecuencia de sampleo de la señal
@@ -58,7 +58,7 @@ def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
     """
     señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
                      duracion=duracion)
-    return (np.sign(señal)+minimo+1)/(2*(maximo-minimo))
+    return (maximo-minimo)*(np.sign(señal)/2+1/2)+minimo
 
 
 def callback_input(in_data, frame_count, time_info, status):
