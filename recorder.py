@@ -1,139 +1,132 @@
 # -*- coding: utf-8 -*-
-'''recorder.py
-Provides WAV recording functionality via two approaches:
-
-Blocking mode (record for a set duration):
->>> rec = Recorder(channels=2)
->>> with rec.open('blocking.wav', 'wb') as recfile:
-...     recfile.record(duration=5.0)
-
-Non-blocking mode (start and stop recording):
->>> rec = Recorder(channels=2)
->>> with rec.open('nonblocking.wav', 'wb') as recfile2:
-...     recfile2.start_recording()
-...     time.sleep(5.0)
-...     recfile2.stop_recording()
-'''
-
+import struct
 import pyaudio
 import wave
+import numpy as np
+import glob
+import os
+import matplotlib.pyplot as plt
 import time
 
-class Recorder(object):
-    '''A recorder class for recording audio to a WAV file.
-    Records in mono by default.
-    '''
 
-    def __init__(self, channels=1, rate=44100, frames_per_buffer=1024):
-        self.channels = channels
-        self.rate = rate
-        self.frames_per_buffer = frames_per_buffer
-
-    def open(self, fname, mode='wb'):
-        return RecordingFile(fname, mode, self.channels, self.rate,
-                            self.frames_per_buffer)
-
-class RecordingFile(object):
-    def __init__(self, fname, mode, channels, 
-                rate, frames_per_buffer):
-        self.fname = fname
-        self.mode = mode
-        self.channels = channels
-        self.rate = rate
-        self.frames_per_buffer = frames_per_buffer
-        self._pa = pyaudio.PyAudio()
-        self.wavefile = self._prepare_file(self.fname, self.mode)
-        self._stream = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exception, value, traceback):
-        self.close()
-
-    def record(self, duration):
-        # Use a stream with no callback function in blocking mode
-        self._stream = self._pa.open(format=pyaudio.paInt16,
-                                        channels=self.channels,
-                                        rate=self.rate,
-                                        input=True,
-                                        frames_per_buffer=self.frames_per_buffer)
-        for _ in range(int(self.rate / self.frames_per_buffer * duration)):
-            audio = self._stream.read(self.frames_per_buffer)
-            self.wavefile.writeframes(audio)
-        return None
-
-    def start_recording(self):
-        # Use a stream with a callback in non-blocking mode
-        self._stream = self._pa.open(format=pyaudio.paInt16,
-                                        channels=self.channels,
-                                        rate=self.rate,
-                                        input=True,
-                                        frames_per_buffer=self.frames_per_buffer,
-                                        stream_callback=self.get_callback())
-        self._stream.start_stream()
-        return self
-
-    def stop_recording(self):
-        self._stream.stop_stream()
-        return self
-
-    def get_callback(self):
-        def callback(in_data, frame_count, time_info, status):
-            self.wavefile.writeframes(in_data)
-            return in_data, pyaudio.paContinue
-        return callback
+def escalon(n_escalones, long_escalon, desde, hasta):
+    """
+    Genera una señal escalonada entre dos valores
+    n_escalones(int) = numero de valores discretos que toma la señal
+    long_escalon(int) = numero de samples por escalon
+    desde(float) = valor inicial de la señal
+    hasta(float) = valor final de la señal
+    Devuelve array
+    """
+    samples = np.linspace(0, 1, n_escalones * long_escalon)
+    samples *= n_escalones  # solo sirve si linspace va de 0 a 1
+    samples = np.floor(samples)
+    samples = samples / n_escalones
+    samples = desde+(hasta-desde)*samples
+    return samples
 
 
-    def close(self):
-        self._stream.close()
-        self._pa.terminate()
-        self.wavefile.close()
+def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.,
+             dtype=np.float32):
+    """
+    Genera una señal senoidal de frecuencia y duracion definida
 
-    def _prepare_file(self, fname, mode='wb'):
-        wavefile = wave.open(fname, mode)
-        wavefile.setnchannels(self.channels)
-        wavefile.setsampwidth(self._pa.get_sample_size(pyaudio.paInt16))
-        wavefile.setframerate(self.rate)
-        return wavefile
-    
-    
+    f_sampleo(float) = frecuencia de sampleo de la señal
+    frecuencia(float) = frecuencia de la señal
+    duracion(float) = duracion de la señal
+    vpp(float) = valor pico a pico
+    offset(float) = valor dc de la señal
+    dtype = data type de la señal
+    Devuelve array
+    """
+    times = np.arange(f_sampleo*duracion)
+    return vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset
 
-import numpy as np
 
-rec = Recorder(channels=2)
-with rec.open('nonblocking.wav', 'wb') as recfile2:
-    recfile2.start_recording()
-    #time.sleep(10.0)
-    CHUNK = 1024
-    
-    #if len(sys.argv) < 2:
-    #    print("Plays a wave file.\n\nUsage: %s filename.wav" % sys.argv[0])
-    #    sys.exit(-1)
-    #wf = wave.open('output.wav', 'rb')
-    volume = 1    # range [0.0, 1.0]
-    fs = 44100       # sampling rate, Hz, must be integer
-    duration = 5.0   # in seconds, may be float
-    f = 200      # sine frequency, Hz, may be float
-    samples = volume*(np.cos(2*np.pi*np.arange(fs*duration)*f/fs)).astype(np.float32)
-    #samples = volume*(np.cos(2*np.pi*np.arange(fs*duration))).astype(np.float32)
+def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
+             maximo=1.):
+    """
+    Genera una señal cuadrada de frecuencia y duracion definida, con valores
+    maximos y minimos definidos
+
+    f_sampleo(float) = frecuencia de sampleo de la señal
+    frecuencia(float) = frecuencia de la señal
+    duracion(float) = duracion de la señal
+    minimo = valor minimo de la señal
+    maximo = valor maximos de la señal
+    Devuelve array
+    """
+    señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
+                     duracion=duracion)
+    return (maximo-minimo)*(np.sign(señal)/2+1/2)+minimo
+
+
+def callback_input(in_data, frame_count, time_info, status):
+    datos.append(in_data)
+    return in_data, pyaudio.paContinue
+
+
+# %%
+code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
+files_path = '/home/juan/Documentos/Instrumentacion/files'
+
+if ~os.path.isdir(code_path):
+    os.makedirs(files_path)
+
+# %%
+struct.pack('f', 3.141592654)
+struct.unpack('f', b'\xdb\x0fI@')
+struct.pack('4f', 1.0, 2.0, 3.0, 4.0)
+
+# %%
+
+pa = pyaudio.PyAudio()
+datos = []
+## Tomamos dia y hora actual para dar nombre al archivo wav
+#mes_dia = strftime("%m%d-%H_%M_%S")
+# Agregamos un contador para facilitar referir a los archivos
+num_wavs = len(glob.glob(os.path.join(os.getcwd(), '*.wav')))
+# Use a stream with a callback in non-blocking mode
+stream = pa.open(format=pyaudio.paInt16,
+                 channels=1,
+                 rate=44100,
+                 input=True,
+                 frames_per_buffer=1024,
+                 stream_callback=callback_input)
+stream.start_stream()
+time.sleep(1)
+stream.stop_stream()
+pa.terminate()
+
+# %%
+CHUNK = 1024
+
+volume = 1.    # range [0.0, 1.0]
+# Cambio sampling rate al valor maximo
+# En ubuntu se puede ver con cat /proc/asound/card0/codec#3
+fs = 192000       # sampling rate, Hz, must be integer
+
+# Barriendo en frecuencia
+frecuencia_inicial = 10
+frecuencia_final = 20000
+periodos_por_frec = 10
+n_frecuencias = 10
+frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
+n_periodos = 10     # cantidad de periodos
+for freq in frecuencias:
     p = pyaudio.PyAudio()
-    
     stream = p.open(format=pyaudio.paFloat32,
                     channels=1,
                     rate=fs,
                     output=True)
-    
+    duration = periodos_por_frec/freq
+    senial = senoidal(f_sampleo=fs, frecuencia=freq, duracion=duration,
+                      vpp=volume, dtype=np.float32)
     fin = CHUNK
-    
-    while fin < len(samples):
-        data = samples[fin-CHUNK:fin].tobytes()
+    while fin < len(senial):
+        data = senial[fin-CHUNK:fin].tobytes()
         stream.write(data)
         fin += CHUNK
-    
     stream.stop_stream()
     stream.close()
-    
     p.terminate()
-    
-    recfile2.stop_recording()
