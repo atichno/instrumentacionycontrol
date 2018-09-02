@@ -26,11 +26,9 @@ def escalon(n_escalones, long_escalon, desde, hasta):
     return samples
 
 
-def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.,
-             dtype=np.float32):
+def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.):
     """
     Genera una señal senoidal de frecuencia y duracion definida
-
     f_sampleo(float) = frecuencia de sampleo de la señal
     frecuencia(float) = frecuencia de la señal
     duracion(float) = duracion de la señal
@@ -40,7 +38,7 @@ def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.,
     Devuelve array
     """
     times = np.arange(f_sampleo*duracion)
-    return vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset
+    return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset)
 
 
 def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
@@ -48,7 +46,6 @@ def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
     """
     Genera una señal cuadrada de frecuencia y duracion definida, con valores
     maximos y minimos definidos
-
     f_sampleo(float) = frecuencia de sampleo de la señal
     frecuencia(float) = frecuencia de la señal
     duracion(float) = duracion de la señal
@@ -101,32 +98,37 @@ pa.terminate()
 # %%
 CHUNK = 1024
 
-volume = 1.    # range [0.0, 1.0]
 # Cambio sampling rate al valor maximo
 # En ubuntu se puede ver con cat /proc/asound/card0/codec#3
-fs = 192000       # sampling rate, Hz, must be integer
+fs = 44100       # sampling rate, Hz, must be integer
+
+# Barriendo en amplitud (volumen)
+volumen_inicial = .1
+volumen_final = 1.
+n_volumenes = 4
+volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
 
 # Barriendo en frecuencia
-frecuencia_inicial = 10
-frecuencia_final = 20000
-periodos_por_frec = 10
-n_frecuencias = 10
+frecuencia_inicial = 200
+frecuencia_final = 300
+duracion = 1 # segundos de duracion
+n_frecuencias = 3
 frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
-n_periodos = 10     # cantidad de periodos
+
 for freq in frecuencias:
-    p = pyaudio.PyAudio()
-    stream = p.open(format=pyaudio.paFloat32,
-                    channels=1,
-                    rate=fs,
-                    output=True)
-    duration = periodos_por_frec/freq
-    senial = senoidal(f_sampleo=fs, frecuencia=freq, duracion=duration,
-                      vpp=volume, dtype=np.float32)
-    fin = CHUNK
-    while fin < len(senial):
-        data = senial[fin-CHUNK:fin].tobytes()
-        stream.write(data)
-        fin += CHUNK
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+    for vol in volumenes:
+        p = pyaudio.PyAudio()
+        stream = p.open(format=pyaudio.paFloat32,
+                        channels=1,
+                        rate=fs,
+                        output=True)
+        senial = senoidal(f_sampleo=fs, frecuencia=freq, duracion=duracion,
+                          vpp=vol).astype(np.float32)
+        fin = CHUNK
+        while fin < len(senial):
+            data = senial[fin-CHUNK:fin].tobytes()
+            stream.write(data)
+            fin += CHUNK
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
