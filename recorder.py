@@ -26,22 +26,29 @@ def escalon(n_escalones, long_escalon, desde, hasta):
     return samples
 
 
-def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.):
+def senoidal(f_sampleo=44100, frecuencia=100, num_puntos=1024, vpp=1.,
+             offset=0.):
     """
-    Genera una señal senoidal de frecuencia y duracion definida
+    Genera una señal senoidal de frecuencia y numero de puntos definida
+    
+    Parameters
+    ----------
     f_sampleo(float) = frecuencia de sampleo de la señal
     frecuencia(float) = frecuencia de la señal
     duracion(float) = duracion de la señal
     vpp(float) = valor pico a pico
     offset(float) = valor dc de la señal
     dtype = data type de la señal
+    
+    Returns
+    -------
     Devuelve array
     """
-    times = np.arange(f_sampleo*duracion)
+    times = np.arange(num_puntos)
     return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset)
 
 
-def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
+def cuadrada(f_sampleo=44100, frecuencia=100, num_puntos=1024, minimo=0.,
              maximo=1.):
     """
     Genera una señal cuadrada de frecuencia y duracion definida, con valores
@@ -54,7 +61,7 @@ def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
     Devuelve array
     """
     señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
-                     duracion=duracion)
+                     num_puntos=num_puntos)
     return (maximo-minimo)*(np.sign(señal)/2+1/2)+minimo
 
 
@@ -63,12 +70,35 @@ def callback_input(in_data, frame_count, time_info, status):
     return in_data, pyaudio.paContinue
 
 
-# %%
-code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
-files_path = '/home/juan/Documentos/Instrumentacion/files'
+def callback_output(out_data, frame_count, time_info, status):
+    out_data = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024,
+                        vpp=1, offset=0.)
+    return out_data, pyaudio.paContinue
 
-if ~os.path.isdir(code_path):
-    os.makedirs(files_path)
+# %% Output con callback
+pa = pyaudio.PyAudio()
+t_medicion = 1.
+fs = 44100       # sampling rate, Hz, must be integer
+datos = np.zeros(int(t_medicion*fs))
+## Tomamos dia y hora actual para dar nombre al archivo wav
+# Use a stream with a callback in non-blocking mode
+stream = pa.open(format=pyaudio.paInt16,
+                 channels=1,
+                 rate=fs,
+                 output=True,
+                 frames_per_buffer=1024,
+                 stream_callback=callback_output)
+stream.start_stream()
+time.sleep(1)
+stream.stop_stream()
+pa.terminate()
+
+# %%
+#code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
+#files_path = '/home/juan/Documentos/Instrumentacion/files'
+#
+#if ~os.path.isdir(code_path):
+#    os.makedirs(files_path)
 
 # %%
 struct.pack('f', 3.141592654)
@@ -94,6 +124,7 @@ stream.start_stream()
 time.sleep(1)
 stream.stop_stream()
 pa.terminate()
+
 
 # %%
 CHUNK = 1024
