@@ -77,33 +77,38 @@ def callback_output(out_data, frame_count, time_info, status):
 
 # %% Output con callback
 pa = pyaudio.PyAudio()
-t_medicion = 1.
+CHUNK = 1024
+t_medicion = 0.05
 fs = 44100       # sampling rate, Hz, must be integer
-datos = np.zeros(int(t_medicion*fs))
-## Tomamos dia y hora actual para dar nombre al archivo wav
 # Use a stream with a callback in non-blocking mode
-stream = pa.open(format=pyaudio.paInt16,
-                 channels=1,
-                 rate=fs,
-                 output=True,
-                 frames_per_buffer=1024,
-                 stream_callback=callback_output)
-stream.start_stream()
+#stream_out = pa.open(format=pyaudio.paInt16,
+#                     channels=1,
+#                     rate=fs,
+#                     output=True,
+#                     frames_per_buffer=1024,
+#                     stream_callback=callback_output)
+#stream_out.start_stream()
+
+datos = np.zeros(int(t_medicion*fs))
+tiempo = np.arange(0, t_medicion, 1/fs)
+stream_in = pa.open(format=pyaudio.paInt16,
+                    channels=1,
+                    rate=fs,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+stream_in.start_stream()
+
+fin = CHUNK
+while fin < int(t_medicion*fs):
+    new_data = stream_in.read(CHUNK)
+    datos[fin-CHUNK:fin] = np.fromstring(new_data, 'Int16')
+    fin += CHUNK
 time.sleep(1)
-stream.stop_stream()
+stream_in.stop_stream()
+#stream_out.stop_stream()
 pa.terminate()
 
-# %%
-#code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
-#files_path = '/home/juan/Documentos/Instrumentacion/files'
-#
-#if ~os.path.isdir(code_path):
-#    os.makedirs(files_path)
-
-# %%
-struct.pack('f', 3.141592654)
-struct.unpack('f', b'\xdb\x0fI@')
-struct.pack('4f', 1.0, 2.0, 3.0, 4.0)
+plt.plot(tiempo, datos)
 
 # %%
 
