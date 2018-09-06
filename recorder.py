@@ -84,24 +84,15 @@ def take(arr, partlen):
 
 def create_callback(gen):
     def callback_output(out_data, frame_count, time_info, status):
-    #    out_data = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024,
-    #                        vpp=0.002, offset=0.)
-    #    out_data = cuadrada(f_sampleo=44100, frecuencia=1000, num_puntos=1024,
-    #                        minimo=0, maximo=0.5)
         out_data = next(gen)
         return out_data, pyaudio.paContinue
-    
     return callback_output
-
-
-
-tmp = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024*10,
-                    vpp=.5, offset=0.)
 
 # %% Output con callback
 pa = pyaudio.PyAudio()
 CHUNK = 1024
-t_medicion = 1.
+tmp = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024*100,
+               vpp=.1, offset=0.)
 fs = 44100       # sampling rate, Hz, must be integer
 # Use a stream with a callback in non-blocking mode
 stream_out = pa.open(format=pyaudio.paFloat32,
@@ -114,11 +105,17 @@ stream_out.start_stream()
 time.sleep(1)
 stream_out.stop_stream()
 pa.terminate()
-# %%
-datos = np.zeros(int(t_medicion*fs))
+# %% Input con tiempo definido
+pa = pyaudio.PyAudio()
+CHUNK = 1024
+t_medicion = 2.
+fs = 44100       # sampling rate, Hz, must be integer
+channels = 1
+datos = np.zeros((channels, int(t_medicion*fs)))
+
 tiempo = np.arange(0, t_medicion, 1/fs)
-stream_in = pa.open(format=pyaudio.paInt16,
-                    channels=1,
+stream_in = pa.open(format=pyaudio.paFloat32,
+                    channels=channels,
                     rate=fs,
                     input=True,
                     frames_per_buffer=CHUNK)
@@ -127,21 +124,23 @@ stream_in.start_stream()
 fin = CHUNK
 while fin < int(t_medicion*fs):
     new_data = stream_in.read(CHUNK)
-    datos[fin-CHUNK:fin] = np.fromstring(new_data, 'Int16')
+    for nchan in range(channels):
+        datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
+             'Float32')
     fin += CHUNK
 time.sleep(1)
 stream_in.stop_stream()
-stream_out.stop_stream()
 pa.terminate()
-plt.plot(tiempo, datos)
+for nchan in range(channels):
+    plt.plot(tiempo, datos[nchan])
 max(abs(datos))
 
-path = 'C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\'
-fname = 'aa'
-if not os.path.exists('{}{}.dat'.format(path, fname)):
-    np.savetxt('{}{}.dat'.format(path, fname), np.transpose([tiempo, datos]))
-else:
-    print('El archivo ya existe!')
+#path = 'C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\'
+#fname = 'aa'
+#if not os.path.exists('{}{}.dat'.format(path, fname)):
+#    np.savetxt('{}{}.dat'.format(path, fname), np.transpose([tiempo, datos]))
+#else:
+#    print('El archivo ya existe!')
     
 # %%
 
