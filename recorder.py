@@ -126,14 +126,13 @@ while fin < int(t_medicion*fs):
     new_data = stream_in.read(CHUNK)
     for nchan in range(channels):
         datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
-             'Float32')
+                                                    'Float32')
     fin += CHUNK
 time.sleep(1)
 stream_in.stop_stream()
 pa.terminate()
 for nchan in range(channels):
     plt.plot(tiempo, datos[nchan])
-max(abs(datos))
 
 #path = 'C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\'
 #fname = 'aa'
@@ -141,7 +140,50 @@ max(abs(datos))
 #    np.savetxt('{}{}.dat'.format(path, fname), np.transpose([tiempo, datos]))
 #else:
 #    print('El archivo ya existe!')
-    
+
+# %% Input-output simultaneo
+pa = pyaudio.PyAudio()
+fs = 44100       # sampling rate, Hz, must beinteger
+CHUNK = 1024
+tmp = senoidal(f_sampleo=fs, frecuencia=2000, num_puntos=CHUNK*100,
+               vpp=.01, offset=0.)
+# Use a stream with a callback in non-blocking mode
+stream_out = pa.open(format=pyaudio.paFloat32,
+                     channels=1,
+                     rate=fs,
+                     output=True,
+                     frames_per_buffer=CHUNK,
+                     stream_callback=create_callback(take(tmp, CHUNK)))
+stream_out.start_stream()
+
+t_medicion = 2.
+channels = 1
+datos = np.zeros((channels, int(t_medicion*fs)))
+tiempo = np.arange(0, t_medicion, 1/fs)
+stream_in = pa.open(format=pyaudio.paFloat32,
+                    channels=channels,
+                    rate=fs,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+stream_in.start_stream()
+
+fin = CHUNK
+while fin < int(t_medicion*fs):
+    new_data = stream_in.read(CHUNK)
+    for nchan in range(channels):
+        datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
+                                                    'Float32')
+    fin += CHUNK
+time.sleep(1)
+stream_in.stop_stream()
+pa.terminate()
+fig, ax = plt.subplots(2, 1)
+ax[0].plot(tiempo, datos[0])
+n_puntos = len(datos[0])
+fourier = np.abs(np.fft.fft(datos[0]))
+fourier_freqs = np.linspace(0, fs, len(datos[0]))
+ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
+
 # %%
 
 pa = pyaudio.PyAudio()
