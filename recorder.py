@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-import struct
 import pyaudio
-import wave
 import numpy as np
 import glob
 import os
 import matplotlib.pyplot as plt
 import time
+from scipy.signal import chirp
 
 
 def escalon(n_escalones, long_escalon, desde, hasta):
@@ -39,13 +38,13 @@ def senoidal(f_sampleo=44100, frecuencia=100, num_puntos=1024, vpp=1.,
     vpp(float) = valor pico a pico
     offset(float) = valor dc de la señal
     dtype = data type de la señal
-    
     Returns
     -------
     Devuelve array
     """
     times = np.arange(num_puntos)
-    return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset).astype(np.float32)
+    return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo))
+            + offset).astype(np.float32)
 
 
 def cuadrada(f_sampleo=44100, frecuencia=100, num_puntos=1024, minimo=0.,
@@ -74,10 +73,8 @@ def take(arr, partlen):
     larr = len(arr)
     while True:
         cursor = 0
-        while cursor < larr:
+        while cursor < larr-partlen:
             tmp = arr[cursor:cursor+partlen]
-            if len(tmp) == 0:
-                break
             yield tmp
             cursor = min(cursor+partlen, larr+1)
 
@@ -142,11 +139,15 @@ for nchan in range(channels):
 #    print('El archivo ya existe!')
 
 # %% Input-output simultaneo
+
 pa = pyaudio.PyAudio()
-fs = 44100       # sampling rate, Hz, must beinteger
+fs = 192000       # sampling rate, Hz, must beinteger
 CHUNK = 1024
 tmp = senoidal(f_sampleo=fs, frecuencia=2000, num_puntos=CHUNK*100,
-               vpp=.01, offset=0.)
+               vpp=1, offset=0.)
+#w = chirp(np.arange(0, t_medicion, 1/fs), f0=1, f1=25000, t1=t_medicion,
+#          method='linear')
+
 # Use a stream with a callback in non-blocking mode
 stream_out = pa.open(format=pyaudio.paFloat32,
                      channels=1,
@@ -183,27 +184,6 @@ n_puntos = len(datos[0])
 fourier = np.abs(np.fft.fft(datos[0]))
 fourier_freqs = np.linspace(0, fs, len(datos[0]))
 ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
-
-# %%
-
-pa = pyaudio.PyAudio()
-datos = []
-## Tomamos dia y hora actual para dar nombre al archivo wav
-#mes_dia = strftime("%m%d-%H_%M_%S")
-# Agregamos un contador para facilitar referir a los archivos
-num_wavs = len(glob.glob(os.path.join(os.getcwd(), '*.wav')))
-# Use a stream with a callback in non-blocking mode
-stream = pa.open(format=pyaudio.paInt16,
-                 channels=1,
-                 rate=44100,
-                 input=True,
-                 frames_per_buffer=1024,
-                 stream_callback=callback_input)
-stream.start_stream()
-time.sleep(1)
-stream.stop_stream()
-pa.terminate()
-
 
 # %%
 CHUNK = 1024
