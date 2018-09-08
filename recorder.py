@@ -85,6 +85,14 @@ def create_callback(gen):
         return out_data, pyaudio.paContinue
     return callback_output
 
+
+def time_per_freq(freq_arr, per_per_freq):
+    cursor = 0
+    while cursor < len(freq_arr):
+        yield per_per_freq/freq_arr[cursor]
+        cursor += 1
+
+
 # %% Output con callback
 pa = pyaudio.PyAudio()
 CHUNK = 1024
@@ -139,15 +147,11 @@ for nchan in range(channels):
 #    print('El archivo ya existe!')
 
 # %% Input-output simultaneo
-
 pa = pyaudio.PyAudio()
 fs = 192000       # sampling rate, Hz, must beinteger
 CHUNK = 1024
 tmp = senoidal(f_sampleo=fs, frecuencia=2000, num_puntos=CHUNK*100,
                vpp=1, offset=0.)
-#w = chirp(np.arange(0, t_medicion, 1/fs), f0=1, f1=25000, t1=t_medicion,
-#          method='linear')
-
 # Use a stream with a callback in non-blocking mode
 stream_out = pa.open(format=pyaudio.paFloat32,
                      channels=1,
@@ -177,6 +181,7 @@ while fin < int(t_medicion*fs):
     fin += CHUNK
 time.sleep(1)
 stream_in.stop_stream()
+stream_out.stop_stream()
 pa.terminate()
 fig, ax = plt.subplots(2, 1)
 ax[0].plot(tiempo, datos[0])
@@ -185,40 +190,63 @@ fourier = np.abs(np.fft.fft(datos[0]))
 fourier_freqs = np.linspace(0, fs, len(datos[0]))
 ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
 
-# %%
+# %% Barrido en frecuencia/caracterizacin par emisor-receptor
+pa = pyaudio.PyAudio()
+fs = 192000
 CHUNK = 1024
 
-# Cambio sampling rate al valor maximo
-# En ubuntu se puede ver con cat /proc/asound/card0/codec#3
-fs = 44100       # sampling rate, Hz, must be integer
-
-# Barriendo en amplitud (volumen)
-volumen_inicial = .1
-volumen_final = 1.
+volumen_inicial = .5
+volumen_final = 3.
 n_volumenes = 4
 volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
 
 # Barriendo en frecuencia
 frecuencia_inicial = 200
-frecuencia_final = 300
-duracion = 1 # segundos de duracion
-n_frecuencias = 3
+frecuencia_final = 3000
+n_frecuencias = 10
 frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
+n_periodos_per_freq = 100
+durations = time_per_freq(frecuencias, n_periodos_per_freq)
+vout_vin = np.zeros((n_frecuencias, n_volumenes))
+fouout_fouin = np.zeros((n_frecuencias, n_volumenes))
 
-for freq in frecuencias:
-    for vol in volumenes:
-        p = pyaudio.PyAudio()
-        stream = p.open(format=pyaudio.paFloat32,
-                        channels=1,
-                        rate=fs,
-                        output=True)
-        senial = senoidal(f_sampleo=fs, frecuencia=freq, duracion=duracion,
-                          vpp=vol).astype(np.float32)
+for n_freq, freq in enumerate(frecuencias):
+    t_medicion = next(durations)
+    t_medicion = 0.1
+    for n_vol, vol in enumerate(volumenes):
+        tmp = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
+                       vpp=vol, offset=0.)
+        stream_out = pa.open(format=pyaudio.paFloat32,
+                             channels=1,
+                             rate=fs,
+                             output=True,
+                             frames_per_buffer=CHUNK,
+                             stream_callback=create_callback(take(tmp, CHUNK)))
+        stream_out.start_stream()
+        num_datos = int(t_medicion*fs)
+        datos = np.zeros(num_datos)
+        tiempo = np.arange(0, t_medicion, 1/fs)
+        stream_in = pa.open(format=pyaudio.paFloat32,
+                            channels=1,
+                            rate=fs,
+                            input=True,
+                            frames_per_buffer=CHUNK)
+        stream_in.start_stream()
         fin = CHUNK
-        while fin < len(senial):
-            data = senial[fin-CHUNK:fin].tobytes()
-            stream.write(data)
+        while fin < int(t_medicion*fs):
+            new_data = stream_in.read(CHUNK)
+            datos[fin-CHUNK:fin] = np.fromstring(new_data, 'Float32')
             fin += CHUNK
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+        stream_in.stop_stream()
+        stream_out.stop_stream()
+        to_analize = datos[-num_datos//10:]
+        vin = (max(tmp)-min(tmp))
+        vout = (max(to_analize)-min(to_analize))
+        fouin = max(np.abs(np.fft.fft(tmp)))
+        fouout = max(np.abs(np.fft.fft(to_analize)))
+        vout_vin[n_freq, n_vol] = vout/vin
+        fouout_fouin[n_freq, n_vol] = fouout/fouin
+pa.terminate()
+for n_vol, _ in enumerate(volumenes):
+    plt.plot(frecuencias, vout_vin[:, n_vol], 'rx')
+plt.plot(frecuencias, np.mean(vout_vin, axis=1), lw=2)
