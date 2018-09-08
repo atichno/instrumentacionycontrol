@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-import struct
 import pyaudio
-import wave
 import numpy as np
 import glob
 import os
 import matplotlib.pyplot as plt
 import time
+from scipy.signal import chirp
 
 
 def escalon(n_escalones, long_escalon, desde, hasta):
@@ -26,22 +25,29 @@ def escalon(n_escalones, long_escalon, desde, hasta):
     return samples
 
 
-def senoidal(f_sampleo=44100, frecuencia=10, duracion=1., vpp=1., offset=0.):
+def senoidal(f_sampleo=44100, frecuencia=100, num_puntos=1024, vpp=1.,
+             offset=0.):
     """
-    Genera una señal senoidal de frecuencia y duracion definida
+    Genera una señal senoidal de frecuencia y numero de puntos definida
+    
+    Parameters
+    ----------
     f_sampleo(float) = frecuencia de sampleo de la señal
     frecuencia(float) = frecuencia de la señal
     duracion(float) = duracion de la señal
     vpp(float) = valor pico a pico
     offset(float) = valor dc de la señal
     dtype = data type de la señal
+    Returns
+    -------
     Devuelve array
     """
-    times = np.arange(f_sampleo*duracion)
-    return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo)) + offset)
+    times = np.arange(num_puntos)
+    return (vpp/2*(np.sin(2*np.pi*times*frecuencia/f_sampleo))
+            + offset).astype(np.float32)
 
 
-def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
+def cuadrada(f_sampleo=44100, frecuencia=100, num_puntos=1024, minimo=0.,
              maximo=1.):
     """
     Genera una señal cuadrada de frecuencia y duracion definida, con valores
@@ -54,7 +60,7 @@ def cuadrada(f_sampleo=44100, frecuencia=10, duracion=1., minimo=0.,
     Devuelve array
     """
     señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
-                     duracion=duracion)
+                     num_puntos=num_puntos)
     return (maximo-minimo)*(np.sign(señal)/2+1/2)+minimo
 
 
@@ -63,37 +69,121 @@ def callback_input(in_data, frame_count, time_info, status):
     return in_data, pyaudio.paContinue
 
 
-# %%
-code_path = '/home/juan/Documentos/Instrumentacion/instrumentacion'
-files_path = '/home/juan/Documentos/Instrumentacion/files'
+def take(arr, partlen):
+    larr = len(arr)
+    while True:
+        cursor = 0
+        while cursor < larr-partlen:
+            tmp = arr[cursor:cursor+partlen]
+            yield tmp
+            cursor = min(cursor+partlen, larr+1)
 
-if ~os.path.isdir(code_path):
-    os.makedirs(files_path)
 
-# %%
-struct.pack('f', 3.141592654)
-struct.unpack('f', b'\xdb\x0fI@')
-struct.pack('4f', 1.0, 2.0, 3.0, 4.0)
+def create_callback(gen):
+    def callback_output(out_data, frame_count, time_info, status):
+        out_data = next(gen)
+        return out_data, pyaudio.paContinue
+    return callback_output
 
-# %%
+# %% Output con callback
+pa = pyaudio.PyAudio()
+CHUNK = 1024
+tmp = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024*100,
+               vpp=.1, offset=0.)
+fs = 44100       # sampling rate, Hz, must be integer
+# Use a stream with a callback in non-blocking mode
+stream_out = pa.open(format=pyaudio.paFloat32,
+                     channels=1,
+                     rate=fs,
+                     output=True,
+                     frames_per_buffer=CHUNK,
+                     stream_callback=create_callback(take(tmp, CHUNK)))
+stream_out.start_stream()
+time.sleep(1)
+stream_out.stop_stream()
+pa.terminate()
+# %% Input con tiempo definido
+pa = pyaudio.PyAudio()
+CHUNK = 1024
+t_medicion = 2.
+fs = 44100       # sampling rate, Hz, must be integer
+channels = 1
+datos = np.zeros((channels, int(t_medicion*fs)))
+
+tiempo = np.arange(0, t_medicion, 1/fs)
+stream_in = pa.open(format=pyaudio.paFloat32,
+                    channels=channels,
+                    rate=fs,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+stream_in.start_stream()
+
+fin = CHUNK
+while fin < int(t_medicion*fs):
+    new_data = stream_in.read(CHUNK)
+    for nchan in range(channels):
+        datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
+                                                    'Float32')
+    fin += CHUNK
+time.sleep(1)
+stream_in.stop_stream()
+pa.terminate()
+for nchan in range(channels):
+    plt.plot(tiempo, datos[nchan])
+
+#path = 'C:\\Users\\Publico\\Desktop\\Instrumentacion\\instrumentacionycontrol\\'
+#fname = 'aa'
+#if not os.path.exists('{}{}.dat'.format(path, fname)):
+#    np.savetxt('{}{}.dat'.format(path, fname), np.transpose([tiempo, datos]))
+#else:
+#    print('El archivo ya existe!')
+
+# %% Input-output simultaneo
 
 pa = pyaudio.PyAudio()
-datos = []
-## Tomamos dia y hora actual para dar nombre al archivo wav
-#mes_dia = strftime("%m%d-%H_%M_%S")
-# Agregamos un contador para facilitar referir a los archivos
-num_wavs = len(glob.glob(os.path.join(os.getcwd(), '*.wav')))
+fs = 192000       # sampling rate, Hz, must beinteger
+CHUNK = 1024
+tmp = senoidal(f_sampleo=fs, frecuencia=2000, num_puntos=CHUNK*100,
+               vpp=1, offset=0.)
+#w = chirp(np.arange(0, t_medicion, 1/fs), f0=1, f1=25000, t1=t_medicion,
+#          method='linear')
+
 # Use a stream with a callback in non-blocking mode
-stream = pa.open(format=pyaudio.paInt16,
-                 channels=1,
-                 rate=44100,
-                 input=True,
-                 frames_per_buffer=1024,
-                 stream_callback=callback_input)
-stream.start_stream()
+stream_out = pa.open(format=pyaudio.paFloat32,
+                     channels=1,
+                     rate=fs,
+                     output=True,
+                     frames_per_buffer=CHUNK,
+                     stream_callback=create_callback(take(tmp, CHUNK)))
+stream_out.start_stream()
+
+t_medicion = 2.
+channels = 1
+datos = np.zeros((channels, int(t_medicion*fs)))
+tiempo = np.arange(0, t_medicion, 1/fs)
+stream_in = pa.open(format=pyaudio.paFloat32,
+                    channels=channels,
+                    rate=fs,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+stream_in.start_stream()
+
+fin = CHUNK
+while fin < int(t_medicion*fs):
+    new_data = stream_in.read(CHUNK)
+    for nchan in range(channels):
+        datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
+                                                    'Float32')
+    fin += CHUNK
 time.sleep(1)
-stream.stop_stream()
+stream_in.stop_stream()
 pa.terminate()
+fig, ax = plt.subplots(2, 1)
+ax[0].plot(tiempo, datos[0])
+n_puntos = len(datos[0])
+fourier = np.abs(np.fft.fft(datos[0]))
+fourier_freqs = np.linspace(0, fs, len(datos[0]))
+ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
 
 # %%
 CHUNK = 1024
