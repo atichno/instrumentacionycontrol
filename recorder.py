@@ -17,7 +17,7 @@ def escalon(n_escalones, long_escalon, desde, hasta):
     hasta(float) = valor final de la señal
     Devuelve array
     """
-    samples = np.linspace(0, 1, n_escalones * long_escalon)
+    samples = np.linspace(0, 1, n_escalones * long_escalon,False)
     samples *= n_escalones  # solo sirve si linspace va de 0 a 1
     samples = np.floor(samples)
     samples = samples / n_escalones
