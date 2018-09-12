@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import time
 from scipy.signal import chirp
+import pandas as pd
 
 
 def senoidal(f_sampleo=44100, frecuencia=100, num_puntos=1024, vpp=1.,
@@ -55,32 +56,45 @@ def time_per_freq(freq_arr, per_per_freq):
 
 
 # %% Barrido en frecuencia/caracterizacion par emisor-receptor
-pa = pyaudio.PyAudio()
 fs = 192000
 CHUNK = 1024
 
-volumen_inicial = .5
-volumen_final = 3.
-n_volumenes = 4
-volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
-
+#volumen_inicial = .1
+#volumen_final = 3.
+#volumenes = np.linspace(volumen_inicial, volumen_final, n_volumenes)
+volumenes = [0.1, 0.5, 1., 1.5, 2., 2.5, 3.]
+volumenes = [2.]
+#volumenes = [1.5, 2., 2.5, 3.]
+n_volumenes = len(volumenes)
 # Barriendo en frecuencia
-frecuencia_inicial = 200
-frecuencia_final = 3000
-n_frecuencias = 10
-n_inputs = 1
-frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
-n_periodos_per_freq = 100
+frecuencia_inicial = 50
+frecuencia_final = 44000
+n_frecuencias = 20
+frecuencias_log = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
+frecuencias_subida = np.linspace(15000, 25000, n_frecuencias)
+frecuencias_caida = np.linspace(1, 50, n_frecuencias)
+
+frecuencias = np.sort(np.concatenate((frecuencias_log, frecuencias_caida, frecuencias_subida)))
+n_periodos_per_freq = 50
+
 durations = time_per_freq(frecuencias, n_periodos_per_freq)
-vout_vin = np.zeros((n_frecuencias, n_volumenes))
-fouout_fouin = np.zeros((n_frecuencias, n_volumenes))
+
+vout_vin = np.zeros((len(frecuencias), n_volumenes))
+fouout_fouin = np.zeros((len(frecuencias), n_volumenes))
+
 datos_serie = []
 frecuencias_serie = []
 volumenes_serie = []
 
+
+df = pd.DataFrame(columns=['frecuencia (Hz)', 'amplitud enviada (num)', 
+                           'amplitud leida (num)', 'leida/enviada'])
+n_medicion = 1
 for n_freq, freq in enumerate(frecuencias):
     t_medicion = next(durations)
+    t_medicion = 0.2
     for n_vol, vol in enumerate(volumenes):
+        pa = pyaudio.PyAudio()
         tmp = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
                        vpp=vol, offset=0.)
         stream_out = pa.open(format=pyaudio.paFloat32,
@@ -109,17 +123,21 @@ for n_freq, freq in enumerate(frecuencias):
         to_analize = datos[-num_datos//10:]
         datos_serie.append(to_analize)
         frecuencias_serie.append(freq)
-        volumenes_seriea.append(vol)
-        vin = (max(tmp)-min(tmp))
-        vout = (max(to_analize)-min(to_analize))
+
+        volumenes_serie.append(vol)
+        vin = (max(tmp)-min(tmp)) # lo que entra al circuito
+        vout = (max(to_analize)-min(to_analize)) # lo que leemos
         fouin = max(np.abs(np.fft.fft(tmp)))
         fouout = max(np.abs(np.fft.fft(to_analize)))
-        vout_vin[n_freq, n_vol] = vout/vin
+        vout_vin[n_freq, n_vol] = vout/vin # leido / enviado
         fouout_fouin[n_freq, n_vol] = fouout/fouin
-pa.terminate()
-fig, ax = plt.subplots(2, sharex=True)
-for n_vol, _ in enumerate(volumenes):
-    ax[0].plot(frecuencias, vout_vin[:, n_vol], 'rx')
-    ax[1].plot(frecuencias, fouout_fouin[:, n_vol], 'rx')
-ax[0].plot(frecuencias, np.mean(vout_vin, axis=1), lw=2)
-ax[1].plot(frecuencias, np.mean(fouout_fouin, axis=1), lw=2)
+        df.loc[n_medicion] = [freq, vin, vout, vout/vin]
+        n_medicion += 1
+        pa.terminate()
+fig, ax = plt.subplots(1, sharex=True)
+for n_vol, vol in enumerate(volumenes):
+    ax.plot(frecuencias, vout_vin[:, n_vol], label='{}'.format(vol))
+    ax.set_xlabel('vout/vin')
+ax.legend()
+df.to_csv('barrido_condiciones_diodo.dat')
+
