@@ -61,7 +61,7 @@ CHUNK = 1024
 #volumen_inicial = .1
 #volumen_final = 3.
 #volumenes = np.linspace(volumen_inicial, volumen_final, n_volumenes)
-volumenes = [0.1, 0.5, 1.]
+volumenes = [0.1, 0.5, 1., 1.5, 2., 2.5, 3.]
 #volumenes = [1.5, 2., 2.5, 3.]
 n_volumenes = len(volumenes)
 # Barriendo en frecuencia
@@ -69,9 +69,10 @@ frecuencia_inicial = 50
 frecuencia_final = 44000
 n_frecuencias = 20
 frecuencias_log = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
-frecuencias_caida = np.linspace(15000, 25000, n_frecuencias)
+frecuencias_subida = np.linspace(15000, 25000, n_frecuencias)
+frecuencias_caida = np.linspace(1, 50, n_frecuencias)
 
-frecuencias = frecuencias_log
+frecuencias = np.sort(np.concatenate((frecuencias_log, frecuencias_caida, frecuencias_subida)))
 n_periodos_per_freq = 50
 
 durations = time_per_freq(frecuencias, n_periodos_per_freq)
@@ -134,4 +135,4 @@ for n_vol, vol in enumerate(volumenes):
     ax.plot(frecuencias, vout_vin[:, n_vol], label='{}'.format(vol))
     ax.set_xlabel('vout/vin')
 ax.legend()
-df.to_csv('barrido6.dat')
+df.to_csv('barrido_n.dat')
