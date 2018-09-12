@@ -55,29 +55,29 @@ def time_per_freq(freq_arr, per_per_freq):
 
 
 # %% Barrido en frecuencia/caracterizacion par emisor-receptor
-pa = pyaudio.PyAudio()
 fs = 192000
 CHUNK = 1024
 
-volumen_inicial = .1
-volumen_final = 3.
-n_volumenes = 4
-volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
-
+#volumen_inicial = .1
+#volumen_final = 3.
+#volumenes = np.linspace(volumen_inicial, volumen_final, n_volumenes)
+volumenes = [0.1, 0.5, 1.]
+#volumenes = [1.5, 2., 2.5, 3.]
+n_volumenes = len(volumenes)
 # Barriendo en frecuencia
 frecuencia_inicial = 50
 frecuencia_final = 44000
-n_frecuencias = 50
+n_frecuencias = 20
 frecuencias_log = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
-frecuencias_caida = np.linspace(15000, 25000, 10)
-frecuencias = np.concatenate((frecuencias_log, frecuencias_caida))
-frecuencias = np.sort(frecuencias)
+frecuencias_caida = np.linspace(15000, 25000, n_frecuencias)
+
+frecuencias = frecuencias_log
 n_periodos_per_freq = 50
 
 durations = time_per_freq(frecuencias, n_periodos_per_freq)
 
-vout_vin = np.zeros((n_frecuencias, n_volumenes))
-fouout_fouin = np.zeros((n_frecuencias, n_volumenes))
+vout_vin = np.zeros((len(frecuencias), n_volumenes))
+fouout_fouin = np.zeros((len(frecuencias), n_volumenes))
 datos_serie = []
 frecuencias_serie = []
 volumenes_serie = []
@@ -87,8 +87,10 @@ df = pd.DataFrame(columns=['frecuencia (Hz)', 'amplitud enviada (num)',
 n_medicion = 1
 for n_freq, freq in enumerate(frecuencias):
     t_medicion = next(durations)
-    t_medicion = 0.5
+    t_medicion = 0.2
     for n_vol, vol in enumerate(volumenes):
+        pa = pyaudio.PyAudio()
+
         tmp = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
                        vpp=vol, offset=0.)
         stream_out = pa.open(format=pyaudio.paFloat32,
@@ -126,10 +128,10 @@ for n_freq, freq in enumerate(frecuencias):
         fouout_fouin[n_freq, n_vol] = fouout/fouin
         df.loc[n_medicion] = [freq, vin, vout, vout/vin]
         n_medicion += 1
-pa.terminate()
+        pa.terminate()
 fig, ax = plt.subplots(1, sharex=True)
 for n_vol, vol in enumerate(volumenes):
     ax.plot(frecuencias, vout_vin[:, n_vol], label='{}'.format(vol))
     ax.set_xlabel('vout/vin')
-ax.plot(frecuencias, np.mean(vout_vin, axis=1), lw=2)
-df.to_csv('barrido.dat')
+ax.legend()
+df.to_csv('barrido6.dat')
