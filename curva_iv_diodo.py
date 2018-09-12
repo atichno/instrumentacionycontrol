@@ -104,7 +104,7 @@ while fin < int(t_medicion*fs):
 stream_in.stop_stream()
 stream_out.stop_stream()
 pa.terminate()
-resistencia = 1000
+resistencia = 68600
 
 v_total = datos_canal1[-num_datos//10:]
 v_resistencia = datos_canal2[-num_datos//10:]
@@ -124,4 +124,4 @@ plt.plot(v_diodo, corriente, label='Curva I-V')
 df['Tiempo (s)'] = tiempo
 df['Corriente (num)'] = corriente
 df['Voltaje diodo (num))'] = v_diodo
-df.to_csv('IV_diodo_n.dat')
+df.to_csv('IV_diodo.dat')

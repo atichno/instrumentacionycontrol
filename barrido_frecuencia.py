@@ -62,6 +62,7 @@ CHUNK = 1024
 #volumen_final = 3.
 #volumenes = np.linspace(volumen_inicial, volumen_final, n_volumenes)
 volumenes = [0.1, 0.5, 1., 1.5, 2., 2.5, 3.]
+volumenes = [2.]
 #volumenes = [1.5, 2., 2.5, 3.]
 n_volumenes = len(volumenes)
 # Barriendo en frecuencia
@@ -135,4 +136,4 @@ for n_vol, vol in enumerate(volumenes):
     ax.plot(frecuencias, vout_vin[:, n_vol], label='{}'.format(vol))
     ax.set_xlabel('vout/vin')
 ax.legend()
-df.to_csv('barrido_n.dat')
+df.to_csv('barrido_condiciones_diodo.dat')

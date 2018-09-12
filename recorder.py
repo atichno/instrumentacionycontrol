@@ -92,17 +92,14 @@ def create_callback(gen):
         return out_data, pyaudio.paContinue
     
     return callback_output
+#%%
 
-
-
-tmp = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024*10,
-                    vpp=.5, offset=0.)
-
-# %% Output con callback
 pa = pyaudio.PyAudio()
 CHUNK = 1024
-t_medicion = 1.
-fs = 44100       # sampling rate, Hz, must be integer
+t_medicion = 5.
+fs = 192000       # sampling rate, Hz, must be integer
+tmp = senoidal(f_sampleo=fs, frecuencia=22000, num_puntos=1024*100,
+                    vpp=2., offset=0.)
 # Use a stream with a callback in non-blocking mode
 stream_out = pa.open(format=pyaudio.paFloat32,
                      channels=1,
