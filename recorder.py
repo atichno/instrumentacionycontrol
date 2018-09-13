@@ -108,7 +108,7 @@ stream_out = pa.open(format=pyaudio.paFloat32,
                      frames_per_buffer=CHUNK,
                      stream_callback=create_callback(take(tmp, CHUNK)))
 stream_out.start_stream()
-time.sleep(1)
+time.sleep(10)
 stream_out.stop_stream()
 pa.terminate()
 # %% Input con tiempo definido
@@ -148,47 +148,73 @@ for nchan in range(channels):
 #    print('El archivo ya existe!')
 
 # %% Input-output simultaneo
-pa = pyaudio.PyAudio()
-fs = 192000       # sampling rate, Hz, must beinteger
+
+fs = 96000       # sampling rate, Hz, must beinteger
 CHUNK = 1024
-tmp = senoidal(f_sampleo=fs, frecuencia=2000, num_puntos=CHUNK*100,
-               vpp=1, offset=0.)
-# Use a stream with a callback in non-blocking mode
-stream_out = pa.open(format=pyaudio.paFloat32,
-                     channels=1,
-                     rate=fs,
-                     output=True,
-                     frames_per_buffer=CHUNK,
-                     stream_callback=create_callback(take(tmp, CHUNK)))
-stream_out.start_stream()
 
-t_medicion = 2.
-channels = 1
-datos = np.zeros((channels, int(t_medicion*fs)))
-tiempo = np.arange(0, t_medicion, 1/fs)
-stream_in = pa.open(format=pyaudio.paFloat32,
-                    channels=channels,
-                    rate=fs,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-stream_in.start_stream()
+volumen_inicial = .1
+volumen_final = 1.
+n_volumenes = 2
+volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
 
-fin = CHUNK
-while fin < int(t_medicion*fs):
-    new_data = stream_in.read(CHUNK)
-    for nchan in range(channels):
-        datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
-                                                    'Float32')
-    fin += CHUNK
-time.sleep(1)
-stream_in.stop_stream()
-stream_out.stop_stream()
-pa.terminate()
+# Barriendo en frecuencia
+frecuencia_inicial = 1000
+frecuencia_final = 5000
+duracion = 1 # segundos de duracion
+n_frecuencias = 2
+frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
+
+datos_serie = []
+frecuencias_serie = []
+volumenes_serie = []
+
+for freq in frecuencias:
+    for vol in volumenes:
+        pa = pyaudio.PyAudio()
+        tmp = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
+                       vpp=vol, offset=0.)
+        #w = chirp(np.arange(0, t_medicion, 1/fs), f0=1, f1=25000, t1=t_medicion,
+        #          method='linear')
+        
+        # Use a stream with a callback in non-blocking mode
+        stream_out = pa.open(format=pyaudio.paFloat32,
+                             channels=1,
+                             rate=fs,
+                             output=True,
+                             frames_per_buffer=CHUNK,
+                             stream_callback=create_callback(take(tmp, CHUNK)))
+        stream_out.start_stream()
+        
+        t_medicion = 1.
+        channels = 1
+        datos = np.zeros((channels, int(t_medicion*fs)))
+        tiempo = np.arange(0, t_medicion, 1/fs)
+        stream_in = pa.open(format=pyaudio.paFloat32,
+                            channels=channels,
+                            rate=fs,
+                            input=True,
+                            frames_per_buffer=CHUNK)
+        stream_in.start_stream()
+        
+        fin = CHUNK
+        while fin < int(t_medicion*fs):
+            new_data = stream_in.read(CHUNK)
+            for nchan in range(channels):
+                datos[nchan][fin-CHUNK:fin] = np.fromstring(new_data[nchan::channels],
+                                                            'Float32')
+            fin += CHUNK
+        stream_in.stop_stream()
+        pa.terminate()
+        datos_serie.append(datos) # guarda la señal medida en cada iteracion
+        frecuencias_serie.append(freq) # guarda informacion del valor de la frecuencia en cada iteracion
+        volumenes_serie.append(vol) # guarda informacion del valor de la amplitud en cada iteracion
+        
+datos_plot = datos_serie[1] # con esto se selecciona una de las señales (de una iteración en particular) para graficarla
 fig, ax = plt.subplots(2, 1)
-ax[0].plot(tiempo, datos[0])
-n_puntos = len(datos[0])
-fourier = np.abs(np.fft.fft(datos[0]))
-fourier_freqs = np.linspace(0, fs, len(datos[0]))
+ax[0].plot(tiempo, datos_plot[0])
+n_puntos = len(datos_plot[0])
+fourier = np.abs(np.fft.fft(datos_plot[0]))
+fourier_freqs = np.linspace(0, fs, len(datos_plot[0]))
 ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
 
 # %% Barrido en frecuencia/caracterizacin par emisor-receptor
@@ -206,33 +232,17 @@ frecuencia_inicial = 200
 frecuencia_final = 3000
 n_frecuencias = 10
 frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
-n_periodos_per_freq = 100
-durations = time_per_freq(frecuencias, n_periodos_per_freq)
-vout_vin = np.zeros((n_frecuencias, n_volumenes))
-fouout_fouin = np.zeros((n_frecuencias, n_volumenes))
 
-for n_freq, freq in enumerate(frecuencias):
-    t_medicion = next(durations)
-    t_medicion = 0.1
-    for n_vol, vol in enumerate(volumenes):
-        tmp = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
-                       vpp=vol, offset=0.)
-        stream_out = pa.open(format=pyaudio.paFloat32,
-                             channels=1,
-                             rate=fs,
-                             output=True,
-                             frames_per_buffer=CHUNK,
-                             stream_callback=create_callback(take(tmp, CHUNK)))
-        stream_out.start_stream()
-        num_datos = int(t_medicion*fs)
-        datos = np.zeros(num_datos)
-        tiempo = np.arange(0, t_medicion, 1/fs)
-        stream_in = pa.open(format=pyaudio.paFloat32,
-                            channels=1,
-                            rate=fs,
-                            input=True,
-                            frames_per_buffer=CHUNK)
-        stream_in.start_stream()
+
+for freq in frecuencias:
+    for vol in volumenes:
+        p = pyaudio.PyAudio()
+        stream = p.open(format=pyaudio.paFloat32,
+                        channels=1,
+                        rate=fs,
+                        output=True)
+        senial = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
+                          vpp=vol).astype(np.float32)
         fin = CHUNK
         while fin < int(t_medicion*fs):
             new_data = stream_in.read(CHUNK)
