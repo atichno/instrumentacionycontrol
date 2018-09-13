@@ -84,6 +84,14 @@ def create_callback(gen):
         out_data = next(gen)
         return out_data, pyaudio.paContinue
     return callback_output
+#%%
+
+def time_per_freq(freq_arr, per_per_freq):
+    cursor = 0
+    while cursor < len(freq_arr):
+        yield per_per_freq/freq_arr[cursor]
+        cursor += 1
+
 
 # %% Output con callback
 pa = pyaudio.PyAudio()
@@ -91,6 +99,7 @@ CHUNK = 1024
 tmp = senoidal(f_sampleo=44100, frecuencia=1000, num_puntos=1024*100,
                vpp=.1, offset=0.)
 fs = 44100       # sampling rate, Hz, must be integer
+
 # Use a stream with a callback in non-blocking mode
 stream_out = pa.open(format=pyaudio.paFloat32,
                      channels=1,
@@ -208,25 +217,22 @@ fourier = np.abs(np.fft.fft(datos_plot[0]))
 fourier_freqs = np.linspace(0, fs, len(datos_plot[0]))
 ax[1].plot(fourier_freqs[:n_puntos//2], fourier[:n_puntos//2])
 
-# %%
+# %% Barrido en frecuencia/caracterizacin par emisor-receptor
+pa = pyaudio.PyAudio()
+fs = 192000
 CHUNK = 1024
 
-# Cambio sampling rate al valor maximo
-# En ubuntu se puede ver con cat /proc/asound/card0/codec#3
-fs = 44100       # sampling rate, Hz, must be integer
-
-# Barriendo en amplitud (volumen)
-volumen_inicial = .1
-volumen_final = 1.
+volumen_inicial = .5
+volumen_final = 3.
 n_volumenes = 4
 volumenes = np.geomspace(volumen_inicial, volumen_final, n_volumenes)
 
 # Barriendo en frecuencia
 frecuencia_inicial = 200
-frecuencia_final = 300
-duracion = 1 # segundos de duracion
-n_frecuencias = 3
+frecuencia_final = 3000
+n_frecuencias = 10
 frecuencias = np.geomspace(frecuencia_inicial, frecuencia_final, n_frecuencias)
+
 
 for freq in frecuencias:
     for vol in volumenes:
@@ -238,10 +244,20 @@ for freq in frecuencias:
         senial = senoidal(f_sampleo=fs, frecuencia=freq, num_puntos=CHUNK*100,
                           vpp=vol).astype(np.float32)
         fin = CHUNK
-        while fin < len(senial):
-            data = senial[fin-CHUNK:fin].tobytes()
-            stream.write(data)
+        while fin < int(t_medicion*fs):
+            new_data = stream_in.read(CHUNK)
+            datos[fin-CHUNK:fin] = np.fromstring(new_data, 'Float32')
             fin += CHUNK
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+        stream_in.stop_stream()
+        stream_out.stop_stream()
+        to_analize = datos[-num_datos//10:]
+        vin = (max(tmp)-min(tmp))
+        vout = (max(to_analize)-min(to_analize))
+        fouin = max(np.abs(np.fft.fft(tmp)))
+        fouout = max(np.abs(np.fft.fft(to_analize)))
+        vout_vin[n_freq, n_vol] = vout/vin
+        fouout_fouin[n_freq, n_vol] = fouout/fouin
+pa.terminate()
+for n_vol, _ in enumerate(volumenes):
+    plt.plot(frecuencias, vout_vin[:, n_vol], 'rx')
+plt.plot(frecuencias, np.mean(vout_vin, axis=1), lw=2)
