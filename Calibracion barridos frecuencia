@@ -1,0 +1,14 @@
+Los siguientes datos corresponden a las calibraciones a realizar en los datos de medicion del archivo barrido_calibracion.dat
+
+La medición de los voltajes fueron realizadas con un osciloscopio Tektronix del lab
+
+Vpp   Freq(Hz)
+2.6   1000
+2.6   10
+2.56  100
+2.58  10000
+1.88  20000
+0.18  25000
+2.54  17000
+2.60  15000
+1.10  22000
