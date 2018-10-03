@@ -9,29 +9,32 @@ Created on Tue Sep 18 09:09:15 2018
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 # %%
+base_folder = '/home/juan/Documentos/Instrumentacion/instrumentacionycontrol/'
+file = 'IV_diodo.dat'
+data = np.genfromtxt('{}{}'.format(base_folder, file), delimiter=',',
+                     skip_header=1, usecols=(1, 4, 5))
 
-data = np.genfromtxt('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/IV_diodo.dat',delimiter=',',skip_header=1,usecols = (1, 4, 5))
-
-tiempo = data[:,0]
-corriente_diodo = data[:,1]
-voltaje_diodo = data[:,2]
+tiempo = data[1:-1024, 0]
+corriente_diodo = data[1:-1024, 1]
+voltaje_diodo = data[1:-1024, 2]
 
 fig = plt.figure(1)
-plt.plot(tiempo,voltaje_diodo)
+plt.plot(tiempo, voltaje_diodo)
 plt.xlabel('Tiempo (s)')
 plt.ylabel('Caída de tensión en el diodo (Vsoft)')
 
-fig = plt.figure(2)
-plt.plot(voltaje_diodo,corriente_diodo)
+fig = plt.figure(2, figsize=(8,6))
+plt.plot(voltaje_diodo, corriente_diodo)
 plt.xlabel('Voltaje (Vsoft)')
-plt.ylabel('Corriente (Vsoft / $\Omega$)')
-#fig.savefig('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/curva_iv_diodo.png')
+plt.ylabel('Corriente (Vsoft/R)')
+fig.tight_layout()
+fig.savefig('{}curva_iv_diodo.png'.format(base_folder), fmt='png', dpi=150)
 
 #%% caracterización del sistema (entrada-salida)
-
-data = np.genfromtxt('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/barrido6y7.dat',delimiter=',',skip_header=1,usecols = (1, 2, 3, 4))
+file = 'barrido6y7.dat'
+data = np.genfromtxt('{}{}'.format(base_folder, file), delimiter=',',
+                     skip_header=1, usecols=(1, 2, 3, 4))
 
 frecuencia = data[:, 0]
 amplitud_enviada = data[:, 1]
@@ -77,8 +80,9 @@ plt.ylabel('Amplitud medida (Vsoft)')
 fig.tight_layout()
 
 #fig.savefig('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/amplitud_medida_volrecording7.png')
-
-data = np.genfromtxt('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/barrido9.dat',delimiter=',',skip_header=1,usecols = (1, 2, 3, 4))
+file = 'barrido9.dat'
+data = np.genfromtxt('{}{}'.format(base_folder, file), delimiter=',',
+                     skip_header=1, usecols=(1, 2, 3, 4))
 frecuencia = data[:, 0]
 amplitud_enviada = data[:, 1]
 amplitud_leida = data[:, 2]
@@ -126,8 +130,9 @@ fig.tight_layout()
 # %% curva de calibracion de la placa de audio al osciloscopio
 
 # levanto barrido_condiciones_diodo porque barrido_calibracion no está (quizás no lo guardamos). Las frecuencias no serán exactamente las mismas.
-
-data = np.genfromtxt('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/barrido_condiciones_diodo.dat',delimiter=',',skip_header=1,usecols = (1, 2, 3, 4))
+file = 'barrido_condiciones_diodo.dat'
+data = np.genfromtxt('{}{}'.format(base_folder, file), delimiter=',',
+                     skip_header=1, usecols=(1, 2, 3, 4))
 
 frecuencia = data[:, 0]
 amplitud_enviada = data[:, 1]
@@ -135,11 +140,11 @@ amplitud_leida = data[:, 2]
 
 color = 'tab:blue'
 
-fig, ax1 = plt.subplots()
-ax1.scatter(frecuencia, amplitud_leida, color=color)
-ax1.set_ylabel('Amplitud leida (Vsoft)',color=color)
-ax1.tick_params(axis='y', labelcolor = color)
-
+fig, ax = plt.subplots(2, figsize=(10,10), sharex=True)
+ax[0].scatter(frecuencia, amplitud_leida, color=color)
+ax[0].set_ylabel('Amplitud leida (Vsoft)',color=color)
+ax[0].tick_params(axis='y', labelcolor = color)
+ax[0].set_xlabel('Frecuencia (Hz)')
 # ahora los valores tomados a mano leyendo el osciloscopio
 
 frecuencias = [1000,10,100,10000,20000,25000,17000,15000,22000]
@@ -148,21 +153,27 @@ voltajes_pp = [2.6,2.6,2.56,2.58,1.88,0.18,2.54,2.60,1.10] # medidos en el oscil
 voltajes_pp = [2.6,2.56,2.56,2.58,2.60,2.54,1.88,1.10,0.18]
 errores_voltajes_pp = [0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.01] ;
 
-ax2 = ax1.twinx()
+ax2 = ax[0].twinx()
 color = 'tab:red'
 ax2.scatter(frecuencias,voltajes_pp, color=color)
-ax2.set_xlabel('Frecuencia (Hz)')
 ax2.set_ylabel('Voltaje pico a pico (V)', color=color)
 ax2.tick_params(axis='y', labelcolor = color)
+# Para graficar con errores:
+#plt.errorbar(frecuencias, voltajes_pp, errores_voltajes_pp)
 
+ax[1].scatter(frecuencia, amplitud_leida/amplitud_enviada)
+ax[1].set_xlabel('Frecuencia (Hz)')
+ax[1].set_ylabel('Amplitud leida/enviada')
 fig.tight_layout()
 
-#fig.savefig('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/amplitud_medida_en_pc_y_osciloscopio_vs_freq.png')
+fig.savefig('{}barrido_cond_diodo.png'.format(base_folder),
+            fmt='png', dpi=200)
 
 #%% del generador de funciones a la placa de audio
 frecuencias = [1, 10, 15000, 18000, 20, 20000, 22000, 30000, 40000, 50, 100, 200] # en Hz, las escribo a mano (tomé solamene los casos de 300mVpp, y no tomé el de continua -100 uHz)
 voltajes = [300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] # en mVpp, también a mano
-data = np.genfromtxt('/Doctorado/Materias/Instrumentacion/instrumentacionycontrol/Prueba input/200Hz300mVpp.dat')
+file = 'Prueba input/200Hz300mVpp.dat'
+data = np.genfromtxt('{}{}'.format(base_folder, file))
 tiempo = data[:, 0]
 voltaje = data[:, 1] # en unidades del software
 porcentaje_a_recortar = 10 # a cada lado
